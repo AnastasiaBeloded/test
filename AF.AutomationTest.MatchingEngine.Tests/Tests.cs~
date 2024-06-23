@@ -1,0 +1,171 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.Linq;
+
+namespace AF.AutomationTest.MatchingEngine.Tests
+{
+    [TestClass]
+    public class Tests
+    {
+        private static MatchingApi _matchingApi;
+
+        [ClassInitialize]
+        public static void ClassInitialize(TestContext _)
+        {
+            _matchingApi = new MatchingApi();
+        }
+        
+        [TestInitialize]
+        public void TestInitialize()
+        {
+            _matchingApi.ClearData();
+        }
+
+        // example test
+        [TestMethod]
+        public void FindMatchTest()
+        {
+            var date = DateTime.UtcNow;
+
+            var record1 = _matchingApi.CreateRecord("Test", 100, 10, date, Side.Buy);
+            var record2 = _matchingApi.CreateRecord("test", 100, 10, date, Side.Sell);
+
+            var isMatched = _matchingApi.CheckIfRecordsMatched(record1, record2);
+
+            Assert.IsTrue(isMatched);
+        }
+        //Verifies that a record is added successfully.
+        [TestMethod]
+        public void CreateRecord_ShouldAddRecord()
+        {
+            var record = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+
+            Assert.IsNotNull(record);
+            var allRecords = _matchingApi.GetAllRecords();
+            Assert.AreEqual(1, allRecords.Count);
+            Assert.AreEqual("Google", allRecords[0].Symbol);
+        }
+        //Tests matching of records with opposite sides.
+        [TestMethod]
+        public void CreateRecord_ShouldMatchOppositeRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(1, matches.Count);
+            Assert.AreEqual(record1.Id, matches[0].trade.Id);
+            Assert.AreEqual(record2.Id, matches[0].counterTrade.Id);
+        }
+        //tests that records with the same side do not match.
+        [TestMethod]
+        public void CreateRecord_ShouldNotMatchSameSideRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(0, matches.Count);
+        }
+        //tests that records with different symnols do not match.
+        [TestMethod]
+        public void CreateRecord_ShouldNotMatchDifferentSymbolRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Apple", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(0, matches.Count);
+        }
+        //tests matching records with quantities within the tolerance.
+        [TestMethod]
+        public void CreateRecord_ShouldMatchWithinQuantityTolerance()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10005, 1250.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(1, matches.Count);
+            Assert.AreEqual(record1.Id, matches[0].trade.Id);
+            Assert.AreEqual(record2.Id, matches[0].counterTrade.Id);
+        }
+        //tests that records with quantities outside the tolerance do not match.
+        [TestMethod]
+        public void CreateRecord_ShouldNotMatchOutsideQuantityTolerance()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10006, 1250.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(0, matches.Count);
+        }
+        //tests that records with different prices do not match.
+        [TestMethod]
+        public void CreateRecord_ShouldNotMatchDifferentPriceRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1260.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(0, matches.Count);
+        }
+        //tests that records with different settlement dates do not match.
+        [TestMethod]
+        public void CreateRecord_ShouldNotMatchDifferentDateRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 4), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var matches = _matchingApi.FindMatch("Google");
+            Assert.AreEqual(0, matches.Count);
+        }
+        //check that matched records return true.
+        [TestMethod]
+        public void CheckIfRecordsMatched_ShouldReturnTrueForMatchedRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var isMatched = _matchingApi.CheckIfRecordsMatched(record1, record2);
+            Assert.IsTrue(isMatched);
+        }
+        //check that hat non-matched records return false.
+        [TestMethod]
+        public void CheckIfRecordsMatched_ShouldReturnFalseForNonMatchedRecords()
+        {
+            var record1 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 3), Side.Buy);
+            var record2 = _matchingApi.CreateRecord("Google", 10000, 1250.50, new DateTime(2023, 5, 4), Side.Sell);
+
+            Assert.IsNotNull(record1);
+            Assert.IsNotNull(record2);
+
+            var isMatched = _matchingApi.CheckIfRecordsMatched(record1, record2);
+            Assert.IsFalse(isMatched);
+        }
+    }
+}
+
